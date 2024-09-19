@@ -1,0 +1,28 @@
+### list
+GET http://localhost:3000/users?filter={"email":{"$startsWith":"john.doe2"}}
+
+### get
+GET http://localhost:3000/users/165354695680
+
+### create
+POST http://localhost:3000/users
+Content-Type: application/json
+
+{
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe2@acme.com",
+    "phone": "1234567890",
+    "password": "password"
+}
+
+### update
+PATCH http://localhost:3000/users/156670387200
+Content-Type: application/json
+
+{
+    "managerId": "370466644992"
+}
+
+### delete
+DELETE http://localhost:3000/users/165354695680
