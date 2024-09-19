@@ -1,5 +1,8 @@
 ### list
-GET http://localhost:3000/users?filter={"email":{"$startsWith":"john.doe2"}}
+GET http://localhost:3000/users?filter={"email":{"$startsWith":"john.doe1@"}}
+# ?filter={"managerId":{"$null":true}} - filter by managerId is null
+# ?filter={"managerId":"370466644992"} - filter by managerId
+# ?filter={"email":{"$startsWith":"john.doe1@"}} - filter by email starts with
 
 ### get
 GET http://localhost:3000/users/165354695680

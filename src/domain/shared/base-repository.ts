@@ -30,21 +30,8 @@ export abstract class BaseRepository<
   }
 
   private getFilteredQueryBuilder(filter?: Filter): SelectQueryBuilder<T> {
-    const parsedFilter = this.parseFilter(filter);
     let qb = this.manager.createQueryBuilder(this.target, 'entity');
-    if (parsedFilter) qb = applyFilters(qb, parsedFilter, 'entity');
+    if (filter) qb = applyFilters(qb, filter, 'entity');
     return qb;
-  }
-
-  private parseFilter(filter: Filter): Filter | null {
-    if (!filter) return null;
-    if (typeof filter === 'string') {
-      try {
-        return JSON.parse(filter);
-      } catch {
-        return null;
-      }
-    }
-    return filter;
   }
 }

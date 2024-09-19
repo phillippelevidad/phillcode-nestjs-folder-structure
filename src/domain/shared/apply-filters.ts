@@ -148,7 +148,7 @@ export function applyFilters<T>(
   filter: Filter,
   alias: string = 'entity',
 ): SelectQueryBuilder<T> {
-  if (!filter) return qb;
+  filter = parseFilter(filter);
   if (!isObject(filter)) return qb;
 
   Object.keys(filter).forEach((key) => {
@@ -184,6 +184,18 @@ export function applyFilters<T>(
   });
 
   return qb;
+}
+
+function parseFilter(filter: Filter): Filter | null {
+  if (!filter) return null;
+  if (typeof filter === 'string') {
+    try {
+      return JSON.parse(filter);
+    } catch {
+      return null;
+    }
+  }
+  return filter;
 }
 
 function applyCondition<T>(
