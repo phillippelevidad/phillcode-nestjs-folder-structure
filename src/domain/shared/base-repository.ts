@@ -31,7 +31,21 @@ export abstract class BaseRepository<
 
   private getFilteredQueryBuilder(filter?: Filter): SelectQueryBuilder<T> {
     let qb = this.manager.createQueryBuilder(this.target, 'entity');
-    if (filter) qb = applyFilters(qb, filter, 'entity');
+    qb = this.addEagerRelations(qb);
+    if (filter) qb = applyFilters(qb, this.target, 'entity', filter);
+    return qb;
+  }
+
+  private addEagerRelations(qb: SelectQueryBuilder<T>): SelectQueryBuilder<T> {
+    const metadata = this.manager.connection.getMetadata(this.target);
+    metadata.relations
+      .filter((relation) => relation.isEager)
+      .forEach((relation) => {
+        qb.leftJoinAndSelect(
+          `entity.${relation.propertyName}`,
+          relation.propertyName,
+        );
+      });
     return qb;
   }
 }

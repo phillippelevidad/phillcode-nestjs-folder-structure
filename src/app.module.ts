@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApplicationModule } from './application/application.module';
 import { NotificationsModule } from './domain/notifications/notifications.module';
 import { SharedModule } from './domain/shared/shared.module';
+import { SkillsModule } from './domain/skills/skills.module';
 import { UsersModule } from './domain/users/users.module';
 
 @Module({
@@ -15,6 +16,7 @@ import { UsersModule } from './domain/users/users.module';
     // Domain modules
     SharedModule,
     NotificationsModule,
+    SkillsModule,
     UsersModule,
 
     // Load environment variables
