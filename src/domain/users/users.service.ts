@@ -78,10 +78,6 @@ export class UsersService {
 
     // Update skills if provided
     if (skillDtos) {
-      // Remove skills missing from the DTO
-      // user.skills = (user.skills ?? []).filter((s) =>
-      //   skillDtos.some((skillDto) => skillDto.skillId === s.skillId),
-      // );
       user.skills = skillDtos.map((skillDto) => {
         const existing = user.skills.find(
           (s) => s.skillId === skillDto.skillId,
