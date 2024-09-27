@@ -104,6 +104,7 @@ function applyCondition<T>(
   path: string,
   value: any,
 ): void {
+  value = transformValue(value);
   if (path.includes('.')) {
     applyRelationCondition(qb, target, alias, path, value);
   } else {
@@ -124,26 +125,18 @@ function applyRelationCondition<T>(
   // Check if relation exists in the metadata
   if (metadata.findRelationWithPropertyPath(relation)) {
     const relationAlias = `${alias}_${relation}`;
-
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      Object.keys(value).forEach((operator: string) => {
-        evaluateOperatorForNestedRelation(
-          qb,
-          target,
-          alias,
-          relation,
-          relationAlias,
-          field,
-          operator as Operator,
-          value[operator],
-        );
-      });
-    } else {
-      qb.leftJoinAndSelect(`${alias}.${relation}`, relationAlias);
-      qb.andWhere(`${relationAlias}.${field} = :${relationAlias}_${field}`, {
-        [`${relationAlias}_${field}`]: value,
-      });
-    }
+    Object.keys(value).forEach((operator: string) => {
+      evaluateOperatorForNestedRelation(
+        qb,
+        target,
+        alias,
+        relation,
+        relationAlias,
+        field,
+        operator as Operator,
+        value[operator],
+      );
+    });
   }
 }
 
@@ -153,13 +146,19 @@ function applySimpleCondition<T>(
   path: string,
   value: any,
 ): void {
-  if (typeof value === 'object' && !Array.isArray(value)) {
-    Object.keys(value).forEach((operator: string) => {
-      evaluateOperator(qb, path, operator as Operator, value[operator], alias);
-    });
-  } else {
-    qb.andWhere(`${alias}.${path} = :${path}`, { [path]: value });
+  Object.keys(value).forEach((operator: string) => {
+    evaluateOperator(qb, path, operator as Operator, value[operator], alias);
+  });
+}
+
+function transformValue(value: any): any {
+  if (value === null) {
+    return { $null: true };
   }
+  if (!(typeof value === 'object' && !Array.isArray(value))) {
+    return { $eq: value };
+  }
+  return value;
 }
 
 function evaluateOperator<T>(

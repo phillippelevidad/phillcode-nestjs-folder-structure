@@ -1,5 +1,5 @@
 ### list
-GET http://localhost:3000/users?filter={"skills.score":{"$gt":8}}
+GET http://localhost:3000/users?filter={"email":{"$startsWith":"john.doe1@"}}
 # ?filter={"skills.score":{"$gt":7}} - filter by skills score greater than 7
 # ?filter={"managerId":{"$null":true}} - filter by managerId is null
 # ?filter={"managerId":"370466644992"} - filter by managerId
