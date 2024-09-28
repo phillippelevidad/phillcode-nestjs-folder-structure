@@ -9,11 +9,11 @@ POST http://localhost:3000/skills
 Content-Type: application/json
 
 {
-    "name": "React"
+    "name": "Nest"
 }
 
 ### update
-PATCH http://localhost:3000/skills/186059019264
+PATCH http://localhost:3000/skills/3142773432320
 Content-Type: application/json
 
 {
@@ -21,4 +21,4 @@ Content-Type: application/json
 }
 
 ### delete
-DELETE http://localhost:3000/skills/165354695680
+DELETE http://localhost:3000/skills/3010342477824

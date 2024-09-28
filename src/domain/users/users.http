@@ -1,12 +1,12 @@
 ### list
-GET http://localhost:3000/users?filter={"email":{"$startsWith":"john.doe1@"}}
+GET http://localhost:3000/users
 # ?filter={"skills.score":{"$gt":7}} - filter by skills score greater than 7
 # ?filter={"managerId":{"$null":true}} - filter by managerId is null
 # ?filter={"managerId":"370466644992"} - filter by managerId
 # ?filter={"email":{"$startsWith":"john.doe1@"}} - filter by email starts with
 
 ### get
-GET http://localhost:3000/users/70015210496
+GET http://localhost:3000/users/145301495808
 
 ### create
 POST http://localhost:3000/users
@@ -15,27 +15,24 @@ Content-Type: application/json
 {
     "firstName": "John",
     "lastName": "Doe",
-    "email": "john.doe2@acme.com",
+    "email": "john.doe3@acme.com",
     "phone": "1234567890",
     "password": "password",
     "skills": [{
-        "skillId": "186059019264",
+        "skillId": "3110057861120",
         "score": 10
     }]
 }
 
 ### update
-PATCH http://localhost:3000/users/70015210496
+PATCH http://localhost:3000/users/145301495808
 Content-Type: application/json
 
 {
     "managerId": null,
     "skills": [{
-        "skillId": "186059019264",
+        "skillId": "3110057861120",
         "score": 9
-    }, {
-        "skillId": "921644572672",
-        "score": 8
     }]
 }
 

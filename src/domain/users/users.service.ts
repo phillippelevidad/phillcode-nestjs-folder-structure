@@ -83,9 +83,9 @@ export class UsersService {
           (s) => s.skillId === skillDto.skillId,
         );
         return this.repository.manager.create(UserSkill, {
+          ...existing,
           ...skillDto,
           id: existing?.id,
-          userId: user.id,
         });
       });
     }
