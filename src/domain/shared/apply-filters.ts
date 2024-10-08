@@ -34,12 +34,116 @@ export interface LogicalFilter {
   $not?: Filter;
 }
 
+/**
+ * The `filter` parameter can include logical operators (`$or`, `$and`, `$not`) as well as field-specific
+ * comparison operators (e.g., `$eq`, `$ne`, `$in`, `$like`, etc.).
+ *
+ * ### Supported Logical Operators:
+ * - `$or`: Combine multiple conditions where any one condition can be true.
+ * - `$and`: Combine multiple conditions where all conditions must be true.
+ * - `$not`: Negate a condition or group of conditions.
+ *
+ * ### Supported Field Comparison Operators:
+ * - `$eq`: Equal to a value.
+ * - `$ne`: Not equal to a value.
+ * - `$gt`: Greater than a value.
+ * - `$gte`: Greater than or equal to a value.
+ * - `$lt`: Less than a value.
+ * - `$lte`: Less than or equal to a value.
+ * - `$in`: Value must be within an array of values.
+ * - `$nin`: Value must not be within an array of values.
+ * - `$like`: String matches a pattern (wildcard `%`).
+ * - `$ilike`: Case-insensitive string matching (PostgreSQL).
+ * - `$null`: Check if the value is NULL or NOT NULL.
+ * - `$between`: Value must be between two values (inclusive).
+ * - `$contains`: Array contains a specific value (PostgreSQL).
+ * - `$contained`: Array is contained within another array (PostgreSQL).
+ * - `$overlap`: Arrays overlap (share common elements).
+ * - `$startsWith`: String starts with a given prefix.
+ * - `$endsWith`: String ends with a given suffix.
+ *
+ * @example
+ * // Basic Equality
+ * const filter = { "name": { "$eq": "John" } };
+ *
+ * // Not equal to
+ * const filter = { "age": { "$ne": 30 } };
+ *
+ * // Greater than
+ * const filter = { "age": { "$gt": 25 } };
+ *
+ * // Less than or equal to
+ * const filter = { "salary": { "$lte": 50000 } };
+ *
+ * // In an array
+ * const filter = { "status": { "$in": ["active", "pending"] } };
+ *
+ * // Not in an array
+ * const filter = { "role": { "$nin": ["admin", "moderator"] } };
+ *
+ * // LIKE pattern matching
+ * const filter = { "name": { "$like": "%Smith%" } };
+ *
+ * // Case-insensitive ILIKE matching (PostgreSQL)
+ * const filter = { "email": { "$ilike": "%@gmail.com" } };
+ *
+ * // NULL check
+ * const filter = { "deletedAt": { "$null": true } };  // checks if `deletedAt` IS NULL
+ * const filter = { "deletedAt": { "$null": false } }; // checks if `deletedAt` IS NOT NULL
+ *
+ * // Between two values (e.g., range filtering)
+ * const filter = { "createdAt": { "$between": ["2023-01-01", "2023-12-31"] } };
+ *
+ * // Array contains a value (PostgreSQL specific)
+ * const filter = { "tags": { "$contains": "featured" } };
+ *
+ * // Array is contained within another array (PostgreSQL specific)
+ * const filter = { "tags": { "$contained": ["featured", "popular"] } };
+ *
+ * // Arrays overlap (share any common elements, PostgreSQL specific)
+ * const filter = { "tags": { "$overlap": ["new", "featured"] } };
+ *
+ * // String starts with
+ * const filter = { "username": { "$startsWith": "admin" } };
+ *
+ * // String ends with
+ * const filter = { "filename": { "$endsWith": ".jpg" } };
+ *
+ * // Logical Operators
+ * const filter = {
+ *   "$or": [
+ *     { "age": { "$lt": 18 } },
+ *     { "age": { "$gt": 60 } }
+ *   ]
+ * };
+ *
+ * const filter = {
+ *   "$and": [
+ *     { "status": { "$eq": "active" } },
+ *     { "age": { "$gte": 18 } }
+ *   ]
+ * };
+ *
+ * const filter = {
+ *   "$not": { "status": { "$eq": "inactive" } }
+ * };
+ */
 export type Filter = string | Condition | LogicalFilter;
 
 export interface Item {
   [key: string]: any;
 }
 
+/**
+ * Applies filtering conditions to a TypeORM query builder based on a provided filter object.
+ *
+ * @param qb - TypeORM SelectQueryBuilder to apply the filters to.
+ * @param target - The target entity class or table name being queried.
+ * @param alias - The alias for the main entity being queried (default: "entity").
+ * @param filter - The filter object containing conditions and logical operators.
+ *
+ * @returns The modified SelectQueryBuilder with applied conditions.
+ */
 export function applyFilters<T>(
   qb: SelectQueryBuilder<T>,
   target: EntityTarget<T>,

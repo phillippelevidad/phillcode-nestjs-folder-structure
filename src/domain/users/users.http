@@ -25,7 +25,7 @@ Content-Type: application/json
 }
 
 ### update
-PATCH http://localhost:3000/users/145301495808
+PATCH http://localhost:3000/users/6067654549504
 Content-Type: application/json
 
 {
@@ -33,6 +33,9 @@ Content-Type: application/json
     "skills": [{
         "skillId": "3110057861120",
         "score": 9
+    }, {
+        "skillId": "3142773432320",
+        "score": 8
     }]
 }
 
