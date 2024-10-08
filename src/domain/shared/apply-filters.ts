@@ -1,5 +1,5 @@
 import { isObject } from 'src/utils/is-object';
-import { SelectQueryBuilder } from 'typeorm';
+import { EntityTarget, SelectQueryBuilder } from 'typeorm';
 
 export type LogicalOperator = '$or' | '$and' | '$not';
 
@@ -138,15 +138,17 @@ export interface Item {
  * Applies filtering conditions to a TypeORM query builder based on a provided filter object.
  *
  * @param qb - TypeORM SelectQueryBuilder to apply the filters to.
- * @param filter - The filter object containing conditions and logical operators.
+ * @param target - The target entity class or table name being queried.
  * @param alias - The alias for the main entity being queried (default: "entity").
+ * @param filter - The filter object containing conditions and logical operators.
  *
  * @returns The modified SelectQueryBuilder with applied conditions.
  */
 export function applyFilters<T>(
   qb: SelectQueryBuilder<T>,
+  target: EntityTarget<T>,
+  alias: string,
   filter: Filter,
-  alias: string = 'entity',
 ): SelectQueryBuilder<T> {
   filter = parseFilter(filter);
   if (!isObject(filter)) return qb;
@@ -157,14 +159,14 @@ export function applyFilters<T>(
     switch (key) {
       case '$or':
         const orConditions = (value as Filter[]).map((subFilter) =>
-          applyFilters(qb, subFilter, alias).getQuery(),
+          applyFilters(qb, target, alias, subFilter).getQuery(),
         );
         qb.andWhere(`(${orConditions.join(' OR ')})`);
         break;
 
       case '$and':
         const andConditions = (value as Filter[]).map((subFilter) =>
-          applyFilters(qb, subFilter, alias).getQuery(),
+          applyFilters(qb, target, alias, subFilter).getQuery(),
         );
         qb.andWhere(`(${andConditions.join(' AND ')})`);
         break;
@@ -172,14 +174,15 @@ export function applyFilters<T>(
       case '$not':
         const notCondition = applyFilters(
           qb,
-          value as Filter,
+          target,
           alias,
+          value as Filter,
         ).getQuery();
         qb.andWhere(`NOT (${notCondition})`);
         break;
 
       default:
-        applyCondition(qb, key, value, alias);
+        applyCondition(qb, target, alias, key, value);
     }
   });
 
@@ -190,7 +193,7 @@ function parseFilter(filter: Filter): Filter | null {
   if (!filter) return null;
   if (typeof filter === 'string') {
     try {
-      return JSON.parse(filter);
+      filter = JSON.parse(filter);
     } catch {
       return null;
     }
@@ -200,99 +203,225 @@ function parseFilter(filter: Filter): Filter | null {
 
 function applyCondition<T>(
   qb: SelectQueryBuilder<T>,
-  key: string,
-  value: any,
+  target: EntityTarget<T>,
   alias: string,
+  path: string,
+  value: any,
 ): void {
-  if (value === null) {
-    qb.andWhere(`${alias}.${key} IS NULL`);
-  } else if (typeof value === 'object' && !Array.isArray(value)) {
-    Object.keys(value).forEach((operator: string) => {
-      evaluateOperator(qb, key, operator as Operator, value[operator], alias);
-    });
+  value = transformValue(value);
+  if (path.includes('.')) {
+    applyRelationCondition(qb, target, alias, path, value);
   } else {
-    const [relation, field] = key.split('.');
-    if (field) {
-      const relationAlias = `${alias}_${relation}`;
-      qb.leftJoinAndSelect(`${alias}.${relation}`, relationAlias);
-      qb.andWhere(`${relationAlias}.${field} = :${relationAlias}_${field}`, {
-        [`${relationAlias}_${field}`]: value,
-      });
-    } else {
-      qb.andWhere(`${alias}.${key} = :${key}`, { [key]: value });
-    }
+    applySimpleCondition(qb, alias, path, value);
   }
+}
+
+function applyRelationCondition<T>(
+  qb: SelectQueryBuilder<T>,
+  target: EntityTarget<T>,
+  alias: string,
+  path: string,
+  value: any,
+): void {
+  const metadata = qb.connection.getMetadata(target);
+  const [relation, field] = path.split('.');
+
+  // Check if relation exists in the metadata
+  if (metadata.findRelationWithPropertyPath(relation)) {
+    const relationAlias = `${alias}_${relation}`;
+    Object.keys(value).forEach((operator: string) => {
+      evaluateOperatorForNestedRelation(
+        qb,
+        target,
+        alias,
+        relation,
+        relationAlias,
+        field,
+        operator as Operator,
+        value[operator],
+      );
+    });
+  }
+}
+
+function applySimpleCondition<T>(
+  qb: SelectQueryBuilder<T>,
+  alias: string,
+  path: string,
+  value: any,
+): void {
+  Object.keys(value).forEach((operator: string) => {
+    evaluateOperator(qb, path, operator as Operator, value[operator], alias);
+  });
+}
+
+function transformValue(value: any): any {
+  if (value === null) {
+    return { $null: true };
+  }
+  if (!(typeof value === 'object' && !Array.isArray(value))) {
+    return { $eq: value };
+  }
+  return value;
 }
 
 function evaluateOperator<T>(
   qb: SelectQueryBuilder<T>,
-  key: string,
+  field: string,
   operator: Operator,
   expectedValue: any,
   alias: string,
 ): void {
-  const field = `${alias}.${key}`;
+  const path = `${alias}.${field}`;
+  const { condition, params } = generateSqlForOperator(
+    field,
+    path,
+    operator,
+    expectedValue,
+  );
+  qb.andWhere(condition, params);
+}
+
+function evaluateOperatorForNestedRelation<T>(
+  qb: SelectQueryBuilder<T>,
+  target: EntityTarget<T>,
+  targetAlias: string,
+  relation: string,
+  relationAlias: string,
+  field: string,
+  operator: Operator,
+  expectedValue: any,
+): void {
+  const path = `"${relationAlias}_sub"."${field}"`;
+  const { condition, params } = generateSqlForOperator(
+    field,
+    path,
+    operator,
+    expectedValue,
+  );
+
+  const targetMetadata = qb.connection.getMetadata(target);
+  const relationMetadata =
+    targetMetadata.findRelationWithPropertyPath(relation);
+  const joinColumn = `${relationMetadata.inverseSidePropertyPath}Id`;
+
+  qb.andWhere(
+    `"${targetAlias}"."id" IN (
+      SELECT "${targetAlias}_sub"."id"
+      FROM "${targetMetadata.givenTableName}" "${targetAlias}_sub"
+      JOIN "${relationMetadata.inverseEntityMetadata.tableName}" "${relationAlias}_sub"
+      ON "${relationAlias}_sub"."${joinColumn}" = "${targetAlias}_sub"."id"
+      WHERE ${condition}
+    )`,
+    params,
+  );
+}
+
+function generateSqlForOperator(
+  field: string,
+  path: string,
+  operator: Operator,
+  expectedValue: any,
+): { condition: string; params: Record<string, any> } {
+  let condition: string;
+  let params: Record<string, any> = { [field]: expectedValue };
 
   switch (operator) {
     case '$eq':
-      qb.andWhere(`${field} = :${key}`, { [key]: expectedValue });
+      condition = `${path} = :${field}`;
       break;
+
     case '$ne':
-      qb.andWhere(`${field} != :${key}`, { [key]: expectedValue });
+      condition = `${path} != :${field}`;
       break;
+
     case '$gt':
-      qb.andWhere(`${field} > :${key}`, { [key]: expectedValue });
+      condition = `${path} > :${field}`;
       break;
+
     case '$gte':
-      qb.andWhere(`${field} >= :${key}`, { [key]: expectedValue });
+      condition = `${path} >= :${field}`;
       break;
+
     case '$lt':
-      qb.andWhere(`${field} < :${key}`, { [key]: expectedValue });
+      condition = `${path} < :${field}`;
       break;
+
     case '$lte':
-      qb.andWhere(`${field} <= :${key}`, { [key]: expectedValue });
+      condition = `${path} <= :${field}`;
       break;
+
     case '$in':
-      qb.andWhere(`${field} IN (:...${key})`, { [key]: expectedValue });
+      if (!Array.isArray(expectedValue)) {
+        throw new Error(
+          `Operator $in expects an array but received: ${typeof expectedValue}`,
+        );
+      }
+      condition = `${path} IN (:...${field})`;
       break;
+
     case '$nin':
-      qb.andWhere(`${field} NOT IN (:...${key})`, { [key]: expectedValue });
+      if (!Array.isArray(expectedValue)) {
+        throw new Error(
+          `Operator $nin expects an array but received: ${typeof expectedValue}`,
+        );
+      }
+      condition = `${path} NOT IN (:...${field})`;
       break;
+
     case '$like':
-      qb.andWhere(`${field} LIKE :${key}`, { [key]: expectedValue });
+      condition = `${path} LIKE :${field}`;
       break;
+
     case '$ilike':
-      qb.andWhere(`${field} ILIKE :${key}`, { [key]: expectedValue });
+      condition = `${path} ILIKE :${field}`;
       break;
+
     case '$null':
       if (expectedValue === true) {
-        qb.andWhere(`${field} IS NULL`);
+        condition = `${path} IS NULL`;
+        params = {};
       } else {
-        qb.andWhere(`${field} IS NOT NULL`);
+        condition = `${path} IS NOT NULL`;
+        params = {};
       }
       break;
+
     case '$between':
-      qb.andWhere(`${field} BETWEEN :start AND :end`, {
-        start: expectedValue[0],
-        end: expectedValue[1],
-      });
+      if (!Array.isArray(expectedValue) || expectedValue.length !== 2) {
+        throw new Error(
+          `Operator $between expects an array of two elements but received: ${typeof expectedValue}`,
+        );
+      }
+      condition = `${path} BETWEEN :start AND :end`;
+      params = { start: expectedValue[0], end: expectedValue[1] };
       break;
+
     case '$contains':
-      qb.andWhere(`${field} @> :${key}`, { [key]: expectedValue });
+      condition = `${path} @> :${field}`;
       break;
+
     case '$contained':
-      qb.andWhere(`${field} <@ :${key}`, { [key]: expectedValue });
+      condition = `${path} <@ :${field}`;
       break;
+
     case '$overlap':
-      qb.andWhere(`${field} && :${key}`, { [key]: expectedValue });
+      condition = `${path} && :${field}`;
       break;
+
     case '$startsWith':
-      qb.andWhere(`${field} LIKE :${key}`, { [key]: `${expectedValue}%` });
+      condition = `${path} LIKE :${field}`;
+      params = { [field]: `${expectedValue}%` };
       break;
+
     case '$endsWith':
-      qb.andWhere(`${field} LIKE :${key}`, { [key]: `%${expectedValue}` });
+      condition = `${path} LIKE :${field}`;
+      params = { [field]: `%${expectedValue}` };
       break;
+
     default:
       throw new Error(`Unsupported operator: ${operator}`);
   }
+
+  return { condition, params };
 }

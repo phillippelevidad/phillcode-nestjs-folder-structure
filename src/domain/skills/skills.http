@@ -1,0 +1,24 @@
+### list
+GET http://localhost:3000/skills
+
+### get
+GET http://localhost:3000/skills/165354695680
+
+### create
+POST http://localhost:3000/skills
+Content-Type: application/json
+
+{
+    "name": "Nest"
+}
+
+### update
+PATCH http://localhost:3000/skills/3142773432320
+Content-Type: application/json
+
+{
+    "name": "NestJS"
+}
+
+### delete
+DELETE http://localhost:3000/skills/3010342477824

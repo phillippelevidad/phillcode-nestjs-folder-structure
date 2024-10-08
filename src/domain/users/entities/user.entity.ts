@@ -1,6 +1,15 @@
 import { AggregateRoot } from 'src/domain/shared/aggregate-root';
 import { hashPassword } from 'src/utils/hash-password';
-import { BeforeInsert, Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import {
+  AfterLoad,
+  BeforeInsert,
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
+import { UserSkill } from './user-skill.entity';
 
 @Entity('users')
 export class User extends AggregateRoot {
@@ -24,8 +33,19 @@ export class User extends AggregateRoot {
   @ManyToOne(() => User, null, { onDelete: 'SET NULL' })
   managerId?: string;
 
+  @OneToMany(() => UserSkill, (skill) => skill.user, {
+    cascade: true, // Automatically save, update, and remove user skills
+    eager: true, // Automatically load skills when user is loaded
+  })
+  skills: UserSkill[];
+
   @BeforeInsert()
-  async hashPassword() {
+  protected async beforeInsert() {
     this.password = await hashPassword(this.password);
+  }
+
+  @AfterLoad()
+  protected afterLoad() {
+    this.skills = this.skills ?? [];
   }
 }
