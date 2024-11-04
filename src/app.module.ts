@@ -1,9 +1,12 @@
+import { LoggerModule } from 'nestjs-pino';
 import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AppController } from './app.controller';
 import { ApplicationModule } from './application/application.module';
+import { CustomLogger } from './custom.logger';
 import { NotificationsModule } from './domain/notifications/notifications.module';
 import { SharedModule } from './domain/shared/shared.module';
 import { SkillsModule } from './domain/skills/skills.module';
@@ -60,6 +63,10 @@ import { UsersModule } from './domain/users/users.module';
 
     // Other general modules
     CqrsModule.forRoot(),
+    LoggerModule.forRoot({ pinoHttp: { level: 'trace' } }),
   ],
+  providers: [CustomLogger],
+  exports: [CustomLogger],
+  controllers: [AppController],
 })
 export class AppModule {}
